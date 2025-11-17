@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroid Run: Ship Selector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
+        /* Ensure the entire body takes up the viewport for a fullscreen effect */
+        html, body {
+            height: 100%;
+            overflow: hidden; /* Prevent scrollbars from appearing */
+        }
+
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #010409;
+            color: #ffcc00; /* Amber/Yellow for space theme */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh; 
+            margin: 0;
+            padding: 0;
+        }
+
+        #game-container {
+            width: 98%; 
+            height: 98%; 
+            display: flex;
+            flex-direction: column; 
+            align-items: center;
+            border: 4px solid #ffcc00;
+            border-radius: 12px;
+            box-shadow: 0 0 20px #ffcc00;
+            background-color: #1a1a2e; /* Dark purple/blue background */
+            position: relative;
+            box-sizing: border-box; 
+        }
+
+        #gameCanvas {
+            width: 100%;
+            flex-grow: 1; 
+            background-color: #000000;
+            border-bottom: 2px solid #ffcc00;
+            cursor: pointer;
+            min-height: 200px; 
+        }
+
+        #info-panel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center; /* Center items vertically */
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            font-size: 1.25rem; /* Slightly smaller for three items */
+            font-weight: 700;
+        }
+        
+        #level-display-container {
+            font-size: 1.5rem;
+            color: #00ccff; /* Blue color for level status */
+        }
+
+        /* Styles for the selection and message screen */
+        .selection-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 2rem;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 8px;
+            text-align: center;
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto; /* Allow scrolling on smaller screens */
+        }
+
+        .selection-screen h2 {
+            font-size: 2.5rem;
+            color: #ffcc00;
+            margin-bottom: 1rem;
+        }
+        
+        /* Character Selection Grid */
+        #avatar-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            max-width: 900px;
+            width: 100%;
+            margin: 2rem 0;
+        }
+
+        .avatar-card {
+            background-color: #2a2a4e;
+            border: 3px solid transparent;
+            border-radius: 10px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 0 8px rgba(255, 204, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .avatar-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(255, 204, 0, 0.5);
+        }
+
+        .avatar-card.selected {
+            border-color: #00ff00; /* Green highlight for selection */
+            box-shadow: 0 0 15px #00ff00;
+        }
+
+        .ship-preview-canvas {
+            width: 100%;
+            height: 80px;
+            margin-bottom: 0.5rem;
+        }
+
+        .ship-name {
+            font-weight: 700;
+            font-size: 1.2rem;
+            margin-bottom: 0.25rem;
+            color: #00ccff;
+        }
+        
+        .start-button {
+            padding: 0.75rem 2rem;
+            background-color: #00ff00; /* Green for start */
+            color: #1a1a2e;
+            font-weight: 900;
+            border-radius: 6px;
+            transition: all 0.2s;
+            cursor: pointer;
+            box-shadow: 0 4px #00cc00;
+            border: none;
+            font-family: 'Orbitron', sans-serif;
+            margin-top: 1rem;
+        }
+
+        .start-button:hover {
+            background-color: #33ff33;
+            box-shadow: 0 2px #00cc00;
+            transform: translateY(2px);
+        }
+
+        #controls-text {
+            margin: 0.75rem 0;
+            font-size: 1rem;
+            color: #cc9900;
+            text-align: center;
+        }
+        
+        /* Mobile touch controls */
+        @media (max-width: 640px) {
+            #mobile-controls {
+                display: flex;
+                gap: 1.5rem;
+                justify-content: center;
+                margin: 1rem 0;
+            }
+            .mobile-btn {
+                padding: 1rem 3rem;
+                background-color: #ffcc0030;
+                border: 2px solid #ffcc00;
+                color: #ffcc00;
+                border-radius: 8px;
+                font-size: 1.5rem;
+                user-select: none;
+                -webkit-tap-highlight-color: transparent;
+            }
+        }
+        #mobile-controls { display: none; }
+        
+        /* Level up message styles */
+        .level-up-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3rem;
+            color: #00ff00;
+            font-weight: 900;
+            text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00;
+            z-index: 50;
+            opacity: 0;
+            /* Shorter transition for quicker fade */
+            transition: opacity 0.15s ease-out, transform 0.15s ease-out; 
+            pointer-events: none;
+        }
+
+        .level-up-active {
+            opacity: 1 !important;
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="info-panel">
+        <div>SCORE: <span id="score-display">0</span></div>
+        <div id="level-display-container">LEVEL <span id="level-display">1</span></div>
+        <div id="high-score-panel">HIGH SCORE: <span id="high-score-display">0</span></div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Temporary Level Up Message Container -->
+    <div id="level-up-message" class="level-up-message"></div>
+
+    <div id="controls-text">
+        Use **LEFT/RIGHT** Arrow Keys or **A/D** to Move.
+    </div>
+
+    <div id="mobile-controls" class="md:hidden">
+        <div id="left-btn" class="mobile-btn">◀</div>
+        <div id="right-btn" class="mobile-btn">▶</div>
+    </div>
+    
+    <!-- SHIP SELECTION AND GAME OVER SCREEN -->
+    <div id="ship-selector-screen" class="selection-screen">
+        <h2 id="screen-title">SELECT YOUR SHIP</h2>
+        <p id="screen-subtitle" class="mb-6 text-lg">Choose your vessel for the Asteroid Run!</p>
+
+        <div id="avatar-grid">
+            <!-- Avatar Cards will be generated here by JavaScript -->
+        </div>
+
+        <button id="start-game-btn" class="start-button" onclick="startGame()">START RUN</button>
+        <p id="game-over-message" class="hidden text-red-400 mt-4 text-xl"></p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreDisplay = document.getElementById('score-display');
+    const highScoreDisplay = document.getElementById('high-score-display');
+    const levelDisplay = document.getElementById('level-display');
+    const levelUpMessage = document.getElementById('level-up-message');
+    const selectorScreen = document.getElementById('ship-selector-screen');
+    const avatarGrid = document.getElementById('avatar-grid');
+    const screenTitle = document.getElementById('screen-title');
+    const screenSubtitle = document.getElementById('screen-subtitle');
+    const startGameBtn = document.getElementById('start-game-btn');
+    const gameOverMessage = document.getElementById('game-over-message');
+    
+    // Avatar Configurations - Distinct shapes inspired by sci-fi ships
+    const AVATARS = [
+        { name: 'X-Fighter', color: '#00ccff', shapeType: 'FIGHTER', description: 'Quick and agile starfighter.' },
+        { name: 'Cargo Hauler', color: '#ffaa00', shapeType: 'CARGO', description: 'Sturdy, wide, and reliable.' },
+        { name: 'Scout Cruiser', color: '#66ff66', shapeType: 'CRUISER', description: 'Sleek, fast, and arrow-shaped.' }
+    ];
+
+    // --- Configuration (Scaled to Canvas Size) ---
+    let PLAYER_SPEED_FACTOR = 0.01; 
+    const BASE_OBSTACLE_SPEED = 3; 
+    let currentObstacleSpeed = BASE_OBSTACLE_SPEED; // Dynamically adjusted speed
+    const BASE_SPAWN_RATE = 50; // Initial frames between asteroid spawns
+    const LEVEL_UP_INCREMENT = 1.5; // How much speed increases per level
+
+    // Global Game State
+    let gameState = {
+        isRunning: false,
+        score: 0, // Time-based score
+        highScore: 0,
+        lastTime: 0,
+        currentAvatarIndex: 0,
+        asteroidsDodged: 0, // Tracks dodges for leveling
+        level: 1, // Current level
+        scoreTimeAccumulator: 0, // Tracks time for reliable scoring
+    };
+
+    // Game Objects
+    let player = {};
+    let obstacles = [];
+
+    // Movement/Control State
+    let keys = {};
+    let obstacleTimer = 0;
+    let messageTimeout;
+
+    // --- Utility Functions ---
+
+    function setupCanvas() {
+        // Set canvas dimensions to match its container size dynamically
+        canvas.width = canvas.clientWidth; 
+        canvas.height = canvas.clientHeight;
+        
+        // Ensure player object is defined before accessing its speed
+        if (player.width) {
+            // Re-scale player speed based on the new canvas width
+            player.speed = canvas.width * PLAYER_SPEED_FACTOR;
+        }
+
+        // If the game is running, redraw the player in the correct, scaled location
+        if (gameState.isRunning) {
+            // Use the reset logic to correctly position the player on resize
+            resetPlayerObject();
+        } else {
+            // If game is not running, re-initialize player object with new dimensions
+            resetPlayerObject();
+        }
+    }
+
+    function resetPlayerObject() {
+        const currentAvatar = AVATARS[gameState.currentAvatarIndex];
+        
+        // Player Size Configuration (Reduced)
+        const playerWidthFactor = 0.05; 
+        const playerHeightFactor = 0.025; 
+        const playerYOffset = 0.04; 
+        
+        player = {
+            width: canvas.width * playerWidthFactor,
+            height: canvas.width * playerHeightFactor,
+            x: canvas.width / 2 - (canvas.width * playerWidthFactor) / 2,
+            y: canvas.height - canvas.width * playerYOffset,
+            speed: canvas.width * PLAYER_SPEED_FACTOR,
+            color: currentAvatar.color, 
+            shapeType: currentAvatar.shapeType,
+            moveLeft: false,
+            moveRight: false
+        };
+    }
+
+    window.addEventListener('resize', setupCanvas);
+    
+    function loadAvatar() {
+        const savedIndex = localStorage.getItem('asteroidRunAvatarIndex');
+        if (savedIndex !== null) {
+            gameState.currentAvatarIndex = parseInt(savedIndex, 10) % AVATARS.length;
+        }
+    }
+
+    function loadHighScore() {
+        gameState.highScore = parseInt(localStorage.getItem('asteroidRunHighScore') || '0', 10); 
+        highScoreDisplay.textContent = gameState.highScore;
+    }
+
+    function updateHighScore() {
+        if (gameState.score > gameState.highScore) {
+            gameState.highScore = gameState.score;
+            localStorage.setItem('asteroidRunHighScore', gameState.highScore);
+            highScoreDisplay.textContent = gameState.highScore;
+        }
+    }
+
+    function resetGameObjects() {
+        resetPlayerObject();
+        obstacles = [];
+        obstacleTimer = 0;
+        
+        // Reset Level and Dodge counters
+        gameState.score = 0;
+        gameState.scoreTimeAccumulator = 0; 
+        gameState.asteroidsDodged = 0;
+        gameState.level = 1;
+        currentObstacleSpeed = BASE_OBSTACLE_SPEED;
+
+        scoreDisplay.textContent = gameState.score;
+        levelDisplay.textContent = gameState.level;
+        keys = {};
+        
+        // Clear any lingering messages
+        levelUpMessage.classList.remove('level-up-active');
+        if (messageTimeout) clearTimeout(messageTimeout);
+    }
+
+    // --- Player Drawing Logic ---
+
+    function drawFighter(p) {
+        // X-Fighter (Classic Inverted Triangle)
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y); 
+        ctx.lineTo(p.x + p.width, p.y); 
+        ctx.lineTo(p.x + p.width / 2, p.y + p.height); 
+        ctx.closePath();
+        ctx.fill();
+
+        // Engine glow
+        ctx.fillStyle = '#ff9933'; 
+        ctx.fillRect(p.x + p.width * 0.4, p.y + p.height, p.width * 0.2, p.height * 0.5);
+    }
+
+    function drawCargo(p) {
+        // Cargo Hauler (Wide, boxy shape)
+        ctx.fillStyle = p.color;
+        
+        // Main body
+        ctx.fillRect(p.x, p.y, p.width, p.height * 1.5);
+
+        // Cockpit
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(p.x + p.width / 2, p.y + p.height * 0.5, p.width * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Engines (two smaller blocks on the sides)
+        ctx.fillStyle = '#ff9933'; 
+        ctx.fillRect(p.x - p.width * 0.05, p.y + p.height * 1.5, p.width * 0.1, p.height * 0.5);
+        ctx.fillRect(p.x + p.width * 0.95, p.y + p.height * 1.5, p.width * 0.1, p.height * 0.5);
+    }
+
+    function drawCruiser(p) {
+        // Scout Cruiser (Sharp, elongated arrowhead)
+        ctx.fillStyle = p.color;
+        
+        // Main body (Arrowhead)
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y + p.height * 0.75); // Left point
+        ctx.lineTo(p.x + p.width / 2, p.y); // Nose
+        ctx.lineTo(p.x + p.width, p.y + p.height * 0.75); // Right point
+        ctx.lineTo(p.x + p.width * 0.8, p.y + p.height * 0.75);
+        ctx.lineTo(p.x + p.width * 0.8, p.y + p.height * 1.5); // Back right
+        ctx.lineTo(p.x + p.width * 0.2, p.y + p.height * 1.5); // Back left
+        ctx.lineTo(p.x + p.width * 0.2, p.y + p.height * 0.75);
+        ctx.closePath();
+        ctx.fill();
+        
+        // Engine glow (wide)
+        ctx.fillStyle = '#ff9933'; 
+        ctx.fillRect(p.x + p.width * 0.2, p.y + p.height * 1.5, p.width * 0.6, p.height * 0.3);
+    }
+
+    function drawPlayer(p = player) {
+        if (!p.shapeType) return;
+        
+        // Get player dimensions scaled for the main canvas, or use preview dimensions
+        const currentWidth = p.width || canvas.width * 0.05;
+        const currentHeight = p.height || canvas.width * 0.025;
+
+        // Create a temporary player object with correct dimensions for drawing
+        const drawP = {
+            ...p,
+            width: currentWidth,
+            height: currentHeight,
+        };
+        
+        // Draw the appropriate shape
+        if (drawP.shapeType === 'FIGHTER') {
+            drawFighter(drawP);
+        } else if (drawP.shapeType === 'CARGO') {
+            drawCargo(drawP);
+        } else if (drawP.shapeType === 'CRUISER') {
+            drawCruiser(drawP);
+        }
+    }
+
+    function updatePlayer() {
+        const movement = player.speed;
+        if (keys['ArrowLeft'] || keys['a'] || player.moveLeft) {
+            player.x -= movement;
+        }
+        if (keys['ArrowRight'] || keys['d'] || player.moveRight) {
+            player.x += movement;
+        }
+
+        // Keep player within bounds
+        if (player.x < 0) player.x = 0;
+        if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+    }
+
+    // --- Level System Functions ---
+
+    function showLevelUpMessage(level) {
+        if (messageTimeout) clearTimeout(messageTimeout);
+
+        levelUpMessage.textContent = `LEVEL ${level} INITIATED! SPEED UP!`;
+        // Make it visible immediately
+        levelUpMessage.classList.add('level-up-active');
+        
+        // Set timeout to start the fade-out after 1.5 seconds
+        messageTimeout = setTimeout(() => {
+            levelUpMessage.classList.remove('level-up-active');
+        }, 1500); // 1500ms total visibility time
+    }
+
+    function checkLevelUp() {
+        // Milestone is 10 * 2^(level-1). Level 1 is 10*2^0=10. Level 2 is 10*2^1=20. Level 3 is 10*2^2=40.
+        const nextMilestone = 10 * Math.pow(2, gameState.level - 1);
+        
+        if (gameState.asteroidsDodged >= nextMilestone) {
+            gameState.level++;
+            levelDisplay.textContent = gameState.level;
+            
+            // Increase speed significantly at level up
+            currentObstacleSpeed += LEVEL_UP_INCREMENT; 
+            
+            showLevelUpMessage(gameState.level);
+        }
+    }
+
+    // --- Obstacle Logic ---
+
+    function createObstacle() {
+        const minSize = canvas.width * 0.025; 
+        const maxSize = canvas.width * 0.06; 
+        const size = Math.random() * (maxSize - minSize) + minSize;
+        
+        obstacles.push({
+            x: Math.random() * (canvas.width - size),
+            y: -size, 
+            width: size,
+            height: size,
+            // Asteroid speed is now simply the current level speed
+            speed: currentObstacleSpeed, 
+            color: '#999999' 
+        });
+    }
+
+    function drawObstacle(obstacle) {
+        ctx.fillStyle = obstacle.color;
+        ctx.fillRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height);
+        
+        ctx.fillStyle = '#666666';
+        ctx.fillRect(obstacle.x + obstacle.width * 0.2, obstacle.y + obstacle.height * 0.2, 3, 3);
+        ctx.fillRect(obstacle.x + obstacle.width * 0.7, obstacle.y + obstacle.height * 0.5, 2, 2);
+    }
+
+    function updateObstacles() {
+        // NEW LOGIC: Spawn rate linked directly to obstacle speed.
+        // As currentObstacleSpeed increases, the effectiveSpawnRate (frames between spawns) decreases.
+        const speedRatio = BASE_OBSTACLE_SPEED / currentObstacleSpeed;
+        const effectiveSpawnRate = BASE_SPAWN_RATE * speedRatio;
+        
+        let asteroidsDodgedIncrease = 0; 
+        obstacleTimer++;
+
+        if (obstacleTimer >= effectiveSpawnRate) {
+            createObstacle();
+            obstacleTimer = 0;
+        }
+
+        obstacles = obstacles.map(obs => {
+            obs.y += obs.speed;
+            return obs;
+        }).filter(obs => {
+            // Check if asteroid has passed the bottom edge
+            if (obs.y > canvas.height) {
+                // If it missed, increase the dodge counter
+                asteroidsDodgedIncrease += 1;
+                return false; // Remove the obstacle
+            }
+            return true; // Keep the obstacle
+        });
+        
+        // Apply the dodge increase and check for level up
+        if (asteroidsDodgedIncrease > 0) {
+            gameState.asteroidsDodged += asteroidsDodgedIncrease;
+            checkLevelUp();
+        }
+    }
+
+
+    // --- Collision and Game State Management ---
+
+    function checkCollision(objA, objB) {
+        return objA.x < objB.x + objB.width &&
+               objA.x + objA.width > objB.x &&
+               objA.y < objB.y + objB.height &&
+               objA.y + objA.height > objB.y;
+    }
+
+    function checkCollisions() {
+        for (const obstacle of obstacles) {
+            if (checkCollision(player, obstacle)) {
+                gameOver();
+                return;
+            }
+        }
+    }
+
+    function updateScore(deltaTime) {
+        // Use an accumulator to reliably track time for scoring, independent of frame rate.
+        gameState.scoreTimeAccumulator += deltaTime;
+        
+        const scoreInterval = 100; // 1 point per 100 milliseconds survived
+        
+        if (gameState.scoreTimeAccumulator >= scoreInterval) {
+            // Calculate how many intervals have passed (usually 1, unless FPS is very low)
+            const scoreIncrease = Math.floor(gameState.scoreTimeAccumulator / scoreInterval);
+            
+            // Increment score
+            gameState.score += scoreIncrease;
+            
+            // Subtract only the time that was used for scoring
+            gameState.scoreTimeAccumulator -= scoreIncrease * scoreInterval;
+            
+            scoreDisplay.textContent = gameState.score;
+        }
+    }
+
+    function gameOver() {
+        gameState.isRunning = false;
+        updateHighScore();
+
+        screenTitle.textContent = 'CRASH! GAME OVER';
+        screenSubtitle.textContent = `You survived to Level ${gameState.level} and scored ${gameState.score} points. High Score: ${gameState.highScore}`;
+        startGameBtn.textContent = 'TRY AGAIN';
+        gameOverMessage.textContent = 'Select a ship or press TRY AGAIN to run with your current choice.';
+        
+        selectorScreen.classList.remove('hidden');
+        gameOverMessage.classList.remove('hidden');
+    }
+
+    function startGame() {
+        selectorScreen.classList.add('hidden');
+        gameOverMessage.classList.add('hidden');
+        resetGameObjects();
+        gameState.isRunning = true;
+        gameState.lastTime = performance.now(); 
+        gameLoop(gameState.lastTime);
+    }
+    
+    // --- Character Selection UI Logic ---
+
+    function selectAvatar(index) {
+        gameState.currentAvatarIndex = index;
+        localStorage.setItem('asteroidRunAvatarIndex', index);
+        
+        // Update visual selection
+        document.querySelectorAll('.avatar-card').forEach((card, i) => {
+            if (i === index) {
+                card.classList.add('selected');
+            } else {
+                card.classList.remove('selected');
+            }
+        });
+        
+        // Update player object for immediate use in game
+        resetPlayerObject();
+        
+        // Update start button text to encourage starting
+        startGameBtn.textContent = `LAUNCH ${AVATARS[index].name.toUpperCase()}!`;
+    }
+
+    function drawAvatarPreview(canvasEl, avatar) {
+        const ctx = canvasEl.getContext('2d');
+        const width = canvasEl.width;
+        const height = canvasEl.height;
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = '#0a0a1a'; // Darker background for contrast
+        ctx.fillRect(0, 0, width, height);
+        
+        // Define common drawing properties for preview
+        const previewP = {
+            x: width * 0.1, // Center the ship roughly
+            y: height * 0.1,
+            width: width * 0.8,
+            height: height * 0.4,
+            color: avatar.color,
+            shapeType: avatar.shapeType
+        };
+
+        // Call the main drawing logic using the preview context and scaled preview object
+        if (previewP.shapeType === 'FIGHTER') {
+            drawFighter({...previewP, y: height * 0.25}, ctx);
+        } else if (previewP.shapeType === 'CARGO') {
+            drawCargo({...previewP, y: height * 0.1}, ctx);
+        } else if (previewP.shapeType === 'CRUISER') {
+            drawCruiser({...previewP, y: height * 0.15}, ctx);
+        }
+    }
+
+    function generateAvatarCards() {
+        avatarGrid.innerHTML = '';
+        AVATARS.forEach((avatar, index) => {
+            const isSelected = index === gameState.currentAvatarIndex;
+            const card = document.createElement('div');
+            card.className = `avatar-card ${isSelected ? 'selected' : ''}`;
+            card.onclick = () => selectAvatar(index);
+            
+            // Create a small canvas for the ship preview
+            const previewCanvas = document.createElement('canvas');
+            previewCanvas.className = 'ship-preview-canvas';
+            previewCanvas.width = 200;
+            previewCanvas.height = 100;
+
+            card.innerHTML = `
+                <div class="ship-name">${avatar.name}</div>
+                <p class="text-sm text-gray-400 mb-2">${avatar.description}</p>
+            `;
+            card.insertBefore(previewCanvas, card.querySelector('.ship-name'));
+            
+            avatarGrid.appendChild(card);
+            
+            // Draw the ship inside the preview canvas
+            drawAvatarPreview(previewCanvas, avatar);
+        });
+        
+        // Ensure the initial button text reflects the loaded choice
+        startGameBtn.textContent = `LAUNCH ${AVATARS[gameState.currentAvatarIndex].name.toUpperCase()}!`;
+    }
+
+    // --- Game Loop ---
+
+    function gameLoop(currentTime) {
+        if (!gameState.isRunning) return;
+
+        const deltaTime = currentTime - gameState.lastTime;
+        gameState.lastTime = currentTime;
+
+        // 1. Clear Canvas
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 2. Update all objects
+        updatePlayer();
+        updateObstacles();
+        updateScore(deltaTime);
+
+        // 3. Check for interactions
+        checkCollisions();
+
+        // 4. Draw all objects
+        obstacles.forEach(drawObstacle);
+        drawPlayer();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    // --- Input Handling ---
+
+    function handleKeyDown(e) {
+        if (!gameState.isRunning) return;
+        const key = e.key.toLowerCase();
+        if (key === 'arrowleft' || key === 'a') {
+            keys['ArrowLeft'] = true;
+            keys['a'] = true;
+        } else if (key === 'arrowright' || key === 'd') {
+            keys['ArrowRight'] = true;
+            keys['d'] = true;
+        }
+    }
+
+    function handleKeyUp(e) {
+        const key = e.key.toLowerCase();
+        if (key === 'arrowleft' || key === 'a') {
+            keys['ArrowLeft'] = false;
+            keys['a'] = false;
+        } else if (key === 'arrowright' || key === 'd') {
+            keys['ArrowRight'] = false;
+            keys['d'] = false;
+        }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    // --- Mobile Touch Controls ---
+    const leftBtn = document.getElementById('left-btn');
+    const rightBtn = document.getElementById('right-btn');
+    
+    // Using simple flags for continuous movement
+    player.moveLeft = false;
+    player.moveRight = false;
+
+    function handleMoveStart(direction) {
+        if (!gameState.isRunning) return;
+        player.moveLeft = (direction === 'left');
+        player.moveRight = (direction === 'right');
+    }
+
+    function handleMoveEnd() {
+        player.moveLeft = false;
+        player.moveRight = false;
+    }
+    
+    leftBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleMoveStart('left'); });
+    leftBtn.addEventListener('touchend', handleMoveEnd);
+    leftBtn.addEventListener('touchcancel', handleMoveEnd);
+    
+    rightBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleMoveStart('right'); });
+    rightBtn.addEventListener('touchend', handleMoveEnd);
+    rightBtn.addEventListener('touchcancel', handleMoveEnd);
+
+    // Initialize the game
+    window.onload = function() {
+        loadAvatar(); // Load chosen avatar index
+        setupCanvas();
+        loadHighScore();
+        resetGameObjects();
+        generateAvatarCards(); // Build and draw the selection screen
+        
+        // Set initial state to black screen behind the selector
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Show the selector screen initially
+        selectorScreen.classList.remove('hidden');
+    };
+
+</script>
+</div>
+
+</body>
+</html>
